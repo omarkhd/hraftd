@@ -1,0 +1,14 @@
+---
+version: "3.9"
+services:
+  leader:
+    image: omarkhd/hraftd:latest
+    container_name: node0
+    entrypoint: ./hraftd --id=node0 --haddr=node0:11000 --raddr=node0:12000 /var/opt/hraftd
+    deploy:
+      resources:
+        limits:
+          cpus: 1
+          memory: 32M
+    ports:
+      - 11000:11000
