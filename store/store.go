@@ -200,6 +200,10 @@ func (s *Store) Join(nodeID, addr string) error {
 	return nil
 }
 
+func (s *Store) Status() string {
+	return s.raft.State().String()
+}
+
 type fsm Store
 
 // Apply applies a Raft log entry to the key-value store.

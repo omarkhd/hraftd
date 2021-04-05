@@ -24,6 +24,9 @@ type Store interface {
 
 	// Join joins the node, identitifed by nodeID and reachable at addr, to the cluster.
 	Join(nodeID string, addr string) error
+
+	// Status returns the store raft status.
+	Status() string
 }
 
 // Service provides HTTP service.
@@ -78,9 +81,15 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.handleKeyRequest(w, r)
 	} else if r.URL.Path == "/join" {
 		s.handleJoin(w, r)
+	} else if r.URL.Path == "/status" {
+		s.handleStatus(w, r)
 	} else {
 		w.WriteHeader(http.StatusNotFound)
 	}
+}
+
+func (s *Service) handleStatus(w http.ResponseWriter, r *http.Request) {
+	io.WriteString(w, s.store.Status())
 }
 
 func (s *Service) handleJoin(w http.ResponseWriter, r *http.Request) {
