@@ -1,0 +1,48 @@
+---
+version: "3.9"
+services:
+  node0:
+    image: otoolep/hraftd:latest
+    container_name: node0
+    entrypoint: ./hraftd --id=node0 --haddr=node0:11000 --raddr=node0:12000 /var/opt/hraftd
+    deploy:
+      resources:
+        limits:
+          cpus: 1
+          memory: 32M
+    ports:
+      - 8070:11000
+    healthcheck:  # healthy until it's the leader
+      test: curl node0:11000/status | grep "Leader"
+      interval: 1s
+      timeout: 1s
+      start_period: 3s
+      retries: 3
+  node1:
+    image: otoolep/hraftd:latest
+    container_name: node1
+    entrypoint: ./hraftd --id=node1 --haddr=node1:11000 --raddr=node1:12000 --join=node0:11000 /var/opt/hraftd
+    deploy:
+      resources:
+        limits:
+          cpus: 1
+          memory: 32M
+    ports:
+      - 8071:11000
+    depends_on:
+      node0:
+        condition: service_healthy
+  node2:
+    image: otoolep/hraftd:latest
+    container_name: node2
+    entrypoint: ./hraftd --id=node2 --haddr=node2:11000 --raddr=node2:12000 --join=node0:11000 /var/opt/hraftd
+    deploy:
+      resources:
+        limits:
+          cpus: 1
+          memory: 32M
+    ports:
+      - 8072:11000
+    depends_on:
+      node0:
+        condition: service_healthy
