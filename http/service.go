@@ -4,12 +4,34 @@ package httpd
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net"
 	"net/http"
 	"strings"
+	"time"
+
+	"github.com/otoolep/hraftd/metrics"
+	"github.com/prometheus/client_golang/prometheus"
 )
+
+var (
+	httpRequestsSummary = prometheus.NewSummaryVec(prometheus.SummaryOpts{
+		Name:       "http_requests",
+		Help:       "HTTP requests to the hraftd service",
+		Objectives: metrics.Quantiles,
+	}, []string{"endpoint", "method"})
+	httpErrorsCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "http_request_errors",
+		Help: "Failed HTTP requests to the hraftd service",
+	}, []string{"endpoint", "method", "status"})
+)
+
+func init() {
+	prometheus.MustRegister(httpRequestsSummary)
+	prometheus.MustRegister(httpErrorsCounter)
+}
 
 // Store is the interface Raft-backed key-value stores must implement.
 type Store interface {
@@ -123,6 +145,16 @@ func (s *Service) handleJoin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) handleKeyRequest(w http.ResponseWriter, r *http.Request) {
+	start := time.Now().UnixNano()
+	labels := map[string]string{
+		"endpoint": "/key",
+		"method":   r.Method,
+	}
+	defer func() {
+		httpRequestsSummary.With(labels).Observe(
+			float64(time.Now().UnixNano() - start),
+		)
+	}()
 	getKey := func() string {
 		parts := strings.Split(r.URL.Path, "/")
 		if len(parts) != 3 {
@@ -130,21 +162,26 @@ func (s *Service) handleKeyRequest(w http.ResponseWriter, r *http.Request) {
 		}
 		return parts[2]
 	}
-
 	switch r.Method {
 	case "GET":
 		k := getKey()
 		if k == "" {
+			labels["status"] = fmt.Sprint(http.StatusBadRequest)
+			httpErrorsCounter.With(labels).Inc()
 			w.WriteHeader(http.StatusBadRequest)
 		}
 		v, err := s.store.Get(k)
 		if err != nil {
+			labels["status"] = fmt.Sprint(http.StatusInternalServerError)
+			httpErrorsCounter.With(labels).Inc()
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
 		b, err := json.Marshal(map[string]string{k: v})
 		if err != nil {
+			labels["status"] = fmt.Sprint(http.StatusInternalServerError)
+			httpErrorsCounter.With(labels).Inc()
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -155,11 +192,15 @@ func (s *Service) handleKeyRequest(w http.ResponseWriter, r *http.Request) {
 		// Read the value from the POST body.
 		m := map[string]string{}
 		if err := json.NewDecoder(r.Body).Decode(&m); err != nil {
+			labels["status"] = fmt.Sprint(http.StatusBadRequest)
+			httpErrorsCounter.With(labels).Inc()
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 		for k, v := range m {
 			if err := s.store.Set(k, v); err != nil {
+				labels["status"] = fmt.Sprint(http.StatusInternalServerError)
+				httpErrorsCounter.With(labels).Inc()
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
@@ -168,16 +209,22 @@ func (s *Service) handleKeyRequest(w http.ResponseWriter, r *http.Request) {
 	case "DELETE":
 		k := getKey()
 		if k == "" {
+			labels["status"] = fmt.Sprint(http.StatusBadRequest)
+			httpErrorsCounter.With(labels).Inc()
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 		if err := s.store.Delete(k); err != nil {
+			labels["status"] = fmt.Sprint(http.StatusInternalServerError)
+			httpErrorsCounter.With(labels).Inc()
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		s.store.Delete(k)
 
 	default:
+		labels["status"] = fmt.Sprint(http.StatusMethodNotAllowed)
+		httpErrorsCounter.With(labels).Inc()
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
 	return
