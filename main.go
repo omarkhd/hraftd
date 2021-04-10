@@ -11,6 +11,7 @@ import (
 	"os/signal"
 
 	"github.com/otoolep/hraftd/http"
+	"github.com/otoolep/hraftd/metrics"
 	"github.com/otoolep/hraftd/store"
 )
 
@@ -41,6 +42,7 @@ func init() {
 
 func main() {
 	flag.Parse()
+	go metrics.Expose()
 
 	if flag.NArg() == 0 {
 		fmt.Fprintf(os.Stderr, "No Raft storage directory specified\n")

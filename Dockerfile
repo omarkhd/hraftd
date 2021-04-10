@@ -5,6 +5,7 @@ ARG SRCDIR
 WORKDIR ${SRCDIR}
 ADD http http
 ADD store store
+ADD metrics metrics
 ADD main.go go.mod go.sum ./
 RUN go build -o hraftd .
 
