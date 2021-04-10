@@ -3,7 +3,7 @@ version: "3.9"
 services:
   leader:
     image: omarkhd/hraftd:latest
-    container_name: node0
+    container_name: hraftd_node0
     entrypoint: ./hraftd --id=node0 --haddr=node0:11000 --raddr=node0:12000 /var/opt/hraftd
     deploy:
       resources:
@@ -12,3 +12,18 @@ services:
           memory: 32M
     ports:
       - 11000:11000
+  prometheus:
+    image: prom/prometheus:v2.26.0
+    volumes:
+      - ./__scripts__/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - 9090:9090
+  grafana:
+    image: grafana/grafana:7.5.3
+    volumes:
+      - ./__scripts__/grafana/grafana.ini:/etc/grafana/grafana.ini:ro
+      - ./__scripts__/grafana/datasources.yml:/etc/grafana/provisioning/datasources/prometheus.yml:ro
+      - ./__scripts__/grafana/dashboards.yml:/etc/grafana/provisioning/dashboards/hraftd.yml:ro
+      - ./__scripts__/grafana/hraftd.json:/var/lib/grafana/dashboards/hraftd.json:ro
+    ports:
+      - 3000:3000
