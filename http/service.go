@@ -150,10 +150,9 @@ func (s *Service) handleKeyRequest(w http.ResponseWriter, r *http.Request) {
 		"endpoint": "/key",
 		"method":   r.Method,
 	}
+	summary := httpRequestsSummary.With(labels)
 	defer func() {
-		httpRequestsSummary.With(labels).Observe(
-			float64(time.Now().UnixNano() - start),
-		)
+		summary.Observe(float64(time.Now().UnixNano() - start))
 	}()
 	getKey := func() string {
 		parts := strings.Split(r.URL.Path, "/")
