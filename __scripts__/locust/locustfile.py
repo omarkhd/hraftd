@@ -6,7 +6,7 @@ import nymph
 
 
 class HraftdUser(locust.HttpUser):
-    host = "http://" + nymph.gateway() + ":11000"
+    host = "http://" + nymph.gateway() + ":18000"
     wait_time = locust.between(0, 1)
     key_length = 4
 

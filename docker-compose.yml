@@ -10,8 +10,9 @@ services:
         limits:
           cpus: 1
           memory: 32M
-    ports:
-      - 11000:11000
+    labels:
+      - traefik.http.routers.leader.rule=PathPrefix(`/key`)
+      - traefik.http.services.leader.loadbalancer.server.port=11000
   prometheus:
     image: prom/prometheus:v2.26.0
     volumes:
@@ -29,5 +30,15 @@ services:
       - ./__scripts__/grafana/hraftd.json:/var/lib/grafana/dashboards/hraftd.json:ro
     ports:
       - 3000:3000
+    logging:
+      driver: none
+  traefik:
+    image: traefik:v2.4
+    command: --api.insecure=true --providers.docker --metrics.prometheus=true
+    ports:
+      - 18000:80
+      - 18080:8080
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
     logging:
       driver: none
